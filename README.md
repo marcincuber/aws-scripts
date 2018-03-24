@@ -1,10 +1,10 @@
-# AWS IAM ACCESS KEYS- ROTATION, DEACTIVATION and REMOVAL
+# AWS IAM ACCESS KEYS- ROTATION, DEACTIVATION & REMOVAL
 
-## Bash scripts for automating IAM key rotation for single user, deactivation/removal of keys in AWS account for all user based on age of the key/s (in days).
+### Bash scripts for automating IAM key rotation for single user, deactivation/removal of keys in AWS account for all user based on age of the key/s (in days).
 
 # aws_iam_keys_main.sh
 
-## `aws_iam_keys_main.sh` is the main bash script that rotates, deactivates or removes IAM keys.
+### `aws_iam_keys_main.sh` is the main bash script that rotates, deactivates or removes IAM keys.
 
 We have following options that we can trigger;
 
