@@ -1,10 +1,10 @@
 # AWS IAM ACCESS KEYS- ROTATION, DEACTIVATION and REMOVAL
 
-**Bash scripts for automating IAM key rotation for single user, deactivation/removal of keys in AWS account for all user based on age of the key/s (in days). **
+## Bash scripts for automating IAM key rotation for single user, deactivation/removal of keys in AWS account for all user based on age of the key/s (in days).
 
 # aws_iam_keys_main.sh
 
-**aws_iam_keys_main.sh** is the main bash script that rotates, deactivates or removes IAM keys.
+## `aws_iam_keys_main.sh` is the main bash script that rotates, deactivates or removes IAM keys.
 
 We have following options that we can trigger;
 
@@ -20,6 +20,7 @@ We have following options that we can trigger;
 NOTE: don't mix flags `-d -rm -u` together. You must only use one of those flags when running the script. See examples below.
 
 ## Rotating IAM keys
+
 Ensure that you have aws credentials setup. When the profile is configured you can easily rotate your keys by running the following;
 
 ```bash
@@ -88,6 +89,7 @@ Enter the max age of your key in days:
 # E.g. if you type in 90, that will mean any key older than 90 days will be removed.
 
 # Second prompt will ask you which keys it should remove. Options;
+
 1. Active
 2. Inactive
 3. Both # Both= Active and Inactive
@@ -116,9 +118,9 @@ Scripts are using the following tools;
 
 1. AWS CLI- (always go for latest version). Install with `pip install awscli` [More on CLI](https://aws.amazon.com/cli/)
 2. jq- various options to install e.g.`apt-get install jq or brew install jq`  [jq install](https://stedolan.github.io/jq/download/)
-## Disclaimer
 3. GNU date- on linux and ubuntu `date` should work. On OSX you will require to install `gdate`. To install run `brew install coreutils`.
 
+## Disclaimer
 _The SOFTWARE PACKAGE provided in this page is provided "as is", without any guarantee made as to its suitability or fitness for any particular use. It may contain bugs, so use of this tool is at your own risk. We take no responsibility for any damage of any sort that may unintentionally be caused through its use._
 
 ## Contacts
