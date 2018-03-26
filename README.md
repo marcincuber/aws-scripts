@@ -15,6 +15,7 @@ We have following options that we can trigger;
      -a  --key-file       The file for the .csv access key file for an AWS administrator. Optional for key rotation.
      -u  --user           The IAM user whose key you want to rotate. Required for key rotation.
      -j  --json           Name of the final to output new credentials. Optional for key rotation.
+     -r  --reconfigure    Set correct credentials. Optional for key rotation. Good to pass `-r true`.
          --help           Prints help menu.
 
 NOTE: don't mix flags `-d -rm -u` together. You must only use one of those flags when running the script. See examples below.
