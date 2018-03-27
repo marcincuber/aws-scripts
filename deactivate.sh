@@ -129,13 +129,15 @@ do
     "All users")
       echo "You chose to deactivate keys for all users"
       iterate_remove deactivate_keys_for_all_users
+      exit 0
       ;;
     "NewsUK users")
       echo "You chose to deactivate keys for users with email ending @news.co.uk"
       iterate_remove deactivate_keys_for_news
+      exit 0
       ;;
     "Exit")
-      break
+      exit 0
       ;;
     *) echo invalid option;;
   esac

@@ -66,9 +66,11 @@ while [ "${1}" != "" ]; do
     case "${1}" in
         -d | --deactivate) shift
                       Deactivate_keys
+                      exit 0
                       ;;
         -rm | --remove) shift
                       Remove_keys
+                      exit 0
                       ;;
         -u | --user)  shift
                       IAM_USER="${1}"
