@@ -427,24 +427,21 @@ rotate_key_profile() {
   NEW_AWS_ACCESS_KEY_ID="${NEW_KEY_DATA[0]}"
   NEW_AWS_SECRET_ACCESS_KEY="${NEW_KEY_DATA[1]}"
 
-  echo "Verifying that the new key was created..."
-  EXISTING_KEYS_ACCESS_IDS=($(aws_list_key_ids "${selected_authprofile}"))
-  NUM_EXISTING_KEYS=${#EXISTING_KEYS_ACCESS_IDS[@]}
-  if [[ ${NUM_EXISTING_KEYS} -lt 2 ]]; then
-    >&2 echo "Something went wrong; the new key was not created."
-    echo "Aborting"
-    continue
-  fi
-
   echo "Pausing to wait for the IAM changes to propagate..."
   COUNT=0
   MAX_COUNT=10
   SUCCESS="false"
   while [[ "${SUCCESS}" = "false" ]] && [[ "${COUNT}" -lt "${MAX_COUNT}" ]]; do
-    sleep 6
+    sleep 5
+    EXISTING_KEYS_ACCESS_IDS=($(aws_list_key_ids "${selected_authprofile}"))
+    NUM_EXISTING_KEYS=${#EXISTING_KEYS_ACCESS_IDS[@]}
+
     aws iam list-access-keys --profile "${selected_authprofile}" > /dev/null && RETURN_CODE=$? || RETURN_CODE=$?
-    if [[ "${RETURN_CODE}" -eq 0 ]]; then
+    if [[ "${RETURN_CODE}" -eq 0 && ${NUM_EXISTING_KEYS} -eq 2 ]]; then
       SUCCESS="true"
+    elif [[ ${NUM_EXISTING_KEYS} -lt 2 ]]; then
+      echo "The new key was not created yet. Waiting..."
+      COUNT=$((COUNT+1))
     else
       COUNT=$((COUNT+1))
       echo "(Still waiting for the key propagation to complete...)"
@@ -467,9 +464,22 @@ rotate_key_profile() {
     fi
 
     # final test
-    EXISTING_KEYS_ACCESS_IDS=($(aws_list_key_ids "${selected_authprofile}"))
-    NUM_EXISTING_KEYS=${#EXISTING_KEYS_ACCESS_IDS[@]}
-    if [[ ${NUM_EXISTING_KEYS} -ne 2 ]]; then
+    COUNT=0
+    MAX_COUNT=10
+    SUCCESS_TEST="false"
+    while [[ "${SUCCESS_TEST}" = "false" ]] && [[ "${COUNT}" -lt "${MAX_COUNT}" ]]; do
+      sleep 5
+      EXISTING_KEYS_ACCESS_IDS=($(aws_list_key_ids "${selected_authprofile}"))
+      NUM_EXISTING_KEYS=${#EXISTING_KEYS_ACCESS_IDS[@]}
+
+      if [[ ${NUM_EXISTING_KEYS} -eq 2 ]]; then
+        SUCCESS_TEST="true"
+      else
+        COUNT=$((COUNT+1))
+      fi
+    done
+
+    if [[ ${SUCCESS_TEST} = "false" ]]; then
       >&2 echo "Something went wrong; the new key could not access AWS CLI."
       revert="true"
     fi
@@ -488,9 +498,23 @@ rotate_key_profile() {
 
     echo "Verifying old access key got deleted ..."
     # this is just to test access via AWS CLI; the content here doesn't matter (other than that we get a result)
-    EXISTING_KEYS_ACCESS_IDS=($(aws_list_key_ids "${selected_authprofile}"))
-    NUM_EXISTING_KEYS=${#EXISTING_KEYS_ACCESS_IDS[@]}
-    if [[ ${NUM_EXISTING_KEYS} -ne 1 ]]; then
+    COUNT=0
+    MAX_COUNT=10
+    SUCCESS_DEL="false"
+    while [[ "${SUCCESS_DEL}" = "false" ]] && [[ "${COUNT}" -lt "${MAX_COUNT}" ]]; do
+      sleep 5
+      EXISTING_KEYS_ACCESS_IDS=($(aws_list_key_ids "${selected_authprofile}"))
+      NUM_EXISTING_KEYS=${#EXISTING_KEYS_ACCESS_IDS[@]}
+
+      if [[ ${NUM_EXISTING_KEYS} -eq 1 ]]; then
+        SUCCESS_DEL="true"
+      else
+        COUNT=$((COUNT+1))
+        echo "(Still waiting for the key to be deleted...)"
+      fi
+    done
+
+    if [[ ${SUCCESS_DEL} = "false" ]]; then
       echo
       >&2 echo "Something went wrong deleting the old key, however, YOUR NEW KEY IS NOW IN USE."
       if [[ "${use_mfaprofile}" = "true" ]]; then
@@ -541,8 +565,11 @@ main_profile_selection() {
     exit 0
   fi
 
-  echo "You selected ${#profiles[@]} profiles."
-  for profile_numer in "${profiles[@]}"; do 
+  # Remove duplicated entries from provided selection
+  unique_profiles=($(tr ' ' '\n' <<< "${profiles[@]}" | sort -u | tr '\n' ' '))
+
+  echo "You selected ${#unique_profiles[@]} profiles."
+  for profile_numer in "${unique_profiles[@]}"; do 
     selprofile=${profile_numer}
 
     # capture the numeric part of the selection
