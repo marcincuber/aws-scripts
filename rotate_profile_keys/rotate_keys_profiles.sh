@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+bold=$(tput bold)
 red=$(tput setaf 1)
 green=$(tput setaf 2)
 blue=$(tput setaf 4)
@@ -35,6 +36,17 @@ aws_list_key_create_date() {
 
 Exists() {
   command -v "${1}" >/dev/null 2>&1
+}
+
+print_array() {
+  # run through array and print each entry:
+  local array
+  array=("$@")
+  for i in "${array[@]}" ; do
+      printf '%s ' "${i}"
+  done
+  # print a new line
+  printf '\n'
 }
 
 # ================================================================
@@ -178,12 +190,12 @@ while IFS='' read -r line || [[ -n "${line}" ]]; do
 
       # get the actual username (may be different from the arbitrary profile ident)
       s_no=0
-      for s in ${key_status_array[@]}; do
-        if [[ "${s}" == "Active" || "${s}" == "Denied" || "${s}" == "Inactive" ]]; then
+      for status in ${key_status_array[@]}; do
+        if [[ "${status}" == "Active" || "${status}" == "Denied" || "${status}" == "Inactive" ]]; then
 
-          if [[ "${s}" == "Active" ]]; then
+          if [[ "${status}" == "Active" ]]; then
             statusword="  Active"
-          elif [[ "${s}" == "Denied" ]]; then
+          elif [[ "${status}" == "Denied" ]]; then
             statusword="INSUFFICIENT PRIVILEGES TO PROCESS THE KEY"
           else
             statusword="Inactive"
@@ -192,7 +204,7 @@ while IFS='' read -r line || [[ -n "${line}" ]]; do
           let "s_no++"
           kcd=$(echo ${key_status_array[${s_no}]} | sed 's/T/ /' | awk '{print $1}')
           let  keypos=${s_no}+1
-          if [[ "${s}" != "Denied" ]]; then
+          if [[ "${status}" != "Denied" ]]; then
             if [[ "${OS}" = "Darwin" ]]; then
               key_status_accumulator="   ${statusword} key ${key_status_array[${keypos}]} is $((($(date -jf %Y-%m-%d ${TODAY} +%s) - $(date -jf %Y-%m-%d ${kcd} +%s))/86400)) days old\n${key_status_accumulator}"
             fi
@@ -450,8 +462,7 @@ rotate_key_profile() {
 
   if [[ "${SUCCESS}" = "true" ]]; then
 
-    echo "${green}Key propagation complete.${reset}"
-    echo "Configuring new access key for AWS CLI ..."
+    echo "${green}Key propagation complete.${reset} Configuring new access key for profile: ${cyan}${final_selection}${reset}."
     aws configure set aws_access_key_id "${NEW_AWS_ACCESS_KEY_ID}" --profile "${final_selection}"
     aws configure set aws_secret_access_key "${NEW_AWS_SECRET_ACCESS_KEY}" --profile "${final_selection}"
 
@@ -493,7 +504,7 @@ rotate_key_profile() {
       continue
     fi
 
-    echo "Deleting the previously active access key ..."
+    echo "Deleting the previously active access key: ${ORIGINAL_ACCESS_KEY_ID}."
     aws iam delete-access-key --access-key-id "${ORIGINAL_ACCESS_KEY_ID}" --profile "${selected_authprofile}"
 
     echo "Verifying old access key got deleted ..."
@@ -524,8 +535,8 @@ rotate_key_profile() {
       fi
     fi
     echo
-    echo "${green}The key for the profile '${final_selection}' (IAM user '${final_selection_name}') has been rotated."
-    echo "Successfully switched from the old access key ${ORIGINAL_ACCESS_KEY_ID} to ${NEW_AWS_ACCESS_KEY_ID}${reset}"
+    echo "${green}The key for the profile ${cyan}'${final_selection}'${green} (IAM user ${cyan}'${final_selection_name}'${green}) has been rotated."
+    echo "Successfully switched from the old access key ${red}${ORIGINAL_ACCESS_KEY_ID}${reset} to ${green}${NEW_AWS_ACCESS_KEY_ID}${reset}"
     continue
 
   else
@@ -546,15 +557,27 @@ rotate_key_profile() {
 
 main_profile_selection() {
   # prompt for profile selection
-  printf "SELECT THE PROFILE NUMBER(green) WHOSE KEYS YOU WANT TO ROTATE (press [ENTER] to continue): "
+  printf "SELECT THE PROFILE NUMBER(${green}green${reset}) WHOSE KEYS YOU WANT TO ROTATE (press [ENTER] to continue): "
 
   profiles=()
   DONE="false"
   while [[ "${DONE}" = "false" ]]; do
     read -r selprofile
-    if [[ "${selprofile}" != "" ]]; then
+    if [[ "${selprofile}" != "" ]] && [[ "${selprofile}" = "EDIT" ]]; then
+      printf "SELECT PROFILE NUMBER TO REMOVE (press [ENTER] to continue): "
+      read -r delprofile
+      for item in ${!profiles[@]};do
+        if [ "${profiles[${item}]}" == "${delprofile}" ]; then
+          unset profiles[${item}]
+        fi 
+      done
+      printf "Current selection: $(print_array "${profiles[@]}")\n"
+      printf "SELECT ANOTHER PROFILE (press [ENTER] to continue, type EDIT to edit selection): "
+    elif [[ "${selprofile}" != "" ]]; then
       profiles+=(${selprofile})
-      printf "SELECT ANOTHER PROFILE (or press [ENTER] to continue): "
+      profiles=($(tr ' ' '\n' <<< "${profiles[@]}" | sort -u | tr '\n' ' '))
+      printf "Current selection: $(print_array "${profiles[@]}")\n"
+      printf "SELECT ANOTHER PROFILE (press [ENTER] to continue, type EDIT to edit selection): "
     else
       DONE="true"
     fi
@@ -587,36 +610,32 @@ main_profile_selection() {
         ${actual_selprofile} -lt 0 ]]; then
         # a selection outside of the existing range was specified
         echo
-        echo "There is no profile "${selprofile}"."
-        echo "Skipping non-existing profile."
+        echo "There is no profile "${selprofile}". Skipping non-existing profile."
         continue
       fi
 
       if [[ ${selprofile} =~ ^[[:digit:]]+$ ]]; then 
         if [[ "${cred_profile_arn[$actual_selprofile]}" = "INVALID" ]]; then
           echo
-          echo "PROFILE: \"${cred_profiles[${actual_selprofile}]}\" HAS INVALID ACCESS KEYS."
-          echo "Cannot proceed. Skipping profile."
+          echo "${bold}PROFILE${reset}: ${cyan}\"${cred_profiles[${actual_selprofile}]}\" ${red}HAS INVALID ACCESS KEYS.${reset} Cannot proceed. Skipping profile."
           continue
         elif [[ "${cred_profile_arn[${actual_selprofile}]}" = "DENIED" ]]; then
           echo
-          echo "PROFILE: \"${cred_profiles[${actual_selprofile}]}\" HAS INSUFFICIENT PRIVILEGES (restrictive policy in effect)."
-          echo "Cannot proceed. Skipping profile."
+          echo "${bold}PROFILE${reset}: ${cyan}\"${cred_profiles[${actual_selprofile}]}\" ${red}HAS INSUFFICIENT PRIVILEGES (restrictive policy in effect).${reset} Cannot proceed. Skipping profile."
           continue
         else
           echo
-          echo "SELECTED PROFILE: ${cred_profiles[${actual_selprofile}]}"
+          echo "${bold}SELECTED PROFILE${reset}: ${cyan}${cred_profiles[${actual_selprofile}]}${reset}"
           final_selection="${cred_profiles[${actual_selprofile}]}"
           final_selection_name="${cred_profile_user[${actual_selprofile}]}"
-          echo "SELECTED USER: ${final_selection_name}"
+          echo "${bold}SELECTED USER${reset}: ${final_selection_name}"
           mfa_profile_verify
           rotate_key_profile
         fi
       else
         # non-acceptable characters were present in the selection
         echo
-        echo "There is no profile "${selprofile}"."
-        echo "Skipping non-existing profile."
+        echo "There is no profile "${selprofile}". Skipping non-existing profile."
         continue             
       fi
     else 
