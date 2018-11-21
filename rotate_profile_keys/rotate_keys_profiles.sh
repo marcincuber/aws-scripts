@@ -183,7 +183,7 @@ while IFS='' read -r line || [[ -n "${line}" ]]; do
         key_status_array[0]="Denied"
         key_status_array[1]=""
         key_status_array[2]=$(aws --profile "${profile_ident}" configure get aws_access_key_id)
-        cred_profile_arn[$cred_profilecounter]="DENIED" 
+        cred_profile_arn[${cred_profilecounter}]="DENIED" 
       else
         key_status_array=($(echo "${key_status_array_input}" | grep -A2 ctive | awk -F\" '{print $2}'))
       fi
